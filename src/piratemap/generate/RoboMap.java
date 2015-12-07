@@ -1,9 +1,13 @@
 package piratemap.generate;
 
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
 
+import piratemap.utils.Util;
 import static piratemap.generate.RoboMap.Tile.*;
 
 public class RoboMap
@@ -27,7 +31,7 @@ public class RoboMap
         @Override
         public String toString()
         {
-            return "Coord [x=" + x + ", y=" + y + "]";
+            return "[" + x + ", " + y + "]";
         }
 
         @Override
@@ -55,6 +59,11 @@ public class RoboMap
             if (y != other.y)
                 return false;
             return true;
+        }
+
+        public Coord add(Coord dir)
+        {
+            return new Coord(x+dir.x, y+dir.y);
         }
         
     }
@@ -171,6 +180,65 @@ public class RoboMap
                 }
                 System.out.println(y + " "+ sb);
             }
+            
+        }
+        
+        BufferedImage render(int tileSizeX, int tileSizeY)
+        {
+            BufferedImage im = new BufferedImage(W*tileSizeX, H * tileSizeY, 
+                    BufferedImage.TYPE_INT_ARGB);
+            
+            Graphics2D g2 = im.createGraphics();
+            
+            g2.setColor(Color.white);
+            
+            for (int x = 1; x < W; x++)
+                for (int y = 1; y < H; y++)
+                {
+                    if (grid[x][y] != grid[x-1][y])
+                        g2.drawLine(x*tileSizeX, y*tileSizeY, x*tileSizeX, (y+1)*tileSizeY);
+                    
+                    if (grid[x][y] != grid[x][y-1])
+                        g2.drawLine(x*tileSizeX, y*tileSizeY, (x+1)*tileSizeX, y*tileSizeY);
+                }
+
+            g2.setColor(Color.yellow);
+            Coord last = null;
+            int w2 = tileSizeX/2, h2 = tileSizeY/2;
+            for (Coord cc : route)
+            {
+                if (last != null)
+                {
+                    g2.drawLine(
+                            last.x*tileSizeX+w2, last.y*tileSizeY+h2,
+                            cc.x*tileSizeX+w2, cc.y*tileSizeY+h2
+                            );
+                }
+                last = cc;
+            }
+            
+            for (Coord nn : getNeighbours(last))
+            {
+                if (grid[nn.x][nn.y] == WATER)
+                {
+                    int dx = nn.x - last.x;
+                    int dy = nn.y - last.y;
+                    
+                    g2.drawLine(
+                            last.x*tileSizeX+w2, last.y*tileSizeY+h2,
+                            last.x*tileSizeX+w2+dx*w2, last.y*tileSizeY+h2+dy*h2
+                            );
+                    
+                    break;
+                }
+            }
+            
+            g2.setColor(Color.red);
+            g2.drawLine(mark.x*tileSizeX,mark.y*tileSizeY,
+                    (mark.x+1)*tileSizeX,(mark.y+1)*tileSizeY);
+            g2.drawLine(mark.x*tileSizeX,(mark.y+1)*tileSizeY,
+                    (mark.x+1)*tileSizeX,mark.y*tileSizeY);
+            return im;
         }
         
         void makeXAndRoute()
@@ -218,8 +286,33 @@ public class RoboMap
 //                route.add(cur);
 //            }
             
-            
-            
+            Coord dir = randomDir();
+            for (int i = 0; i < 100; i++)
+            {
+                Coord next = cur.add(dir);
+                
+                if (grid[next.x][next.y] == WATER
+                        || route.contains(next)
+                        || rand.nextInt(10) < 5
+                        )
+                {
+                    // bad location, change direction and retry
+                    dir = randomDir();
+                    continue;
+                }
+                else
+                {
+                    cur = next;
+                    route.add(next);
+                }
+            }
+//            System.out.println(route);
+        }
+        
+        private Coord randomDir()
+        {
+            int di = rand.nextInt(4);
+            return new Coord(d[2*di], d[2*di+1]);
         }
     }
     
@@ -261,6 +354,11 @@ public class RoboMap
         map.makeXAndRoute();
         
         map.print();
+        
+        BufferedImage im = map.render(20, 20);
+        
+        Util.showImage(im);
+        Util.exitAfter(10);
     }
 
 

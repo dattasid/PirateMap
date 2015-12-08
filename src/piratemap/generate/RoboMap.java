@@ -5,6 +5,7 @@ import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Random;
 
 import piratemap.utils.Util;
@@ -34,6 +35,18 @@ public class RoboMap
             return "[" + x + ", " + y + "]";
         }
 
+        /**
+         * Taxicab distance
+         * @param other
+         * @return
+         */
+        public int gridDist(Coord other)
+        {
+            int d = Math.abs(other.x - x)
+                    + Math.abs(other.y - y);
+            return d; 
+        }
+        
         @Override
         public int hashCode()
         {
@@ -131,6 +144,34 @@ public class RoboMap
         public Coord randomSpot()
         {
             return new Coord(rand.nextInt(W), rand.nextInt(H));
+        }
+        
+        HashSet<Coord> getConnected(Coord start)
+        {
+            ArrayList<Coord> list = new ArrayList<>();
+            HashSet<Coord> conn = new HashSet<>();
+            
+            list.add(start);
+            conn.add(start);
+            
+            while(list.size() > 0)
+            {
+                Coord c = list.remove(0);
+                
+                ArrayList<Coord> nn = getNeighbours(c);
+                
+                for (Coord n : nn)
+                {
+                    if (grid[n.x][n.y] != WATER
+                        && !conn.contains(n))
+                    {
+                        conn.add(n);
+                        list.add(n);
+                    }
+                }
+            }
+            
+            return conn;
         }
         
         void print()
@@ -245,11 +286,15 @@ public class RoboMap
         {
             mark = null;
             
+            // make sure the mark is on the main landmass
+            HashSet<Coord> main = getConnected(new Coord(W/2, H/2));
+            
             for (int i = 0; i < 1000; i++)
             {
                 Coord c = randomSpot();
                 Tile tile = getTile(c);
-                if (tile != WATER)
+                if (main.contains(c) 
+                    && tile != WATER)
                 {
                     mark = c;
                     break;
@@ -260,11 +305,11 @@ public class RoboMap
             {
                 System.err.println("Mark spot not found");
             }
+
             
-            route = new ArrayList<Coord>();
-            route.add(mark);
-            Coord cur = mark;
-            
+//            route = new ArrayList<Coord>();
+//            route.add(mark);
+//            Coord cur = mark;
             // Random walk looks horrible.
 //            for (int i = 0; i < 100; i++)
 //            {
@@ -285,30 +330,62 @@ public class RoboMap
 //                cur = filtn.get(rand.nextInt(filtn.size()));
 //                route.add(cur);
 //            }
+
+            route = new ArrayList<Coord>();
             
-            Coord dir = randomDir();
-            for (int i = 0; i < 100; i++)
+            boolean badPath = true;
+            int minDistStartEnd = (int) (Math.sqrt(W*H)/4);
+            
+            while(badPath)
             {
-                Coord next = cur.add(dir);
-                
-                if (grid[next.x][next.y] == WATER
-                        || route.contains(next)
-                        || rand.nextInt(10) < 5
-                        )
+                route.clear();
+                route.add(mark);
+                Coord cur = mark;
+
+                Coord dir = randomDir();
+                int retryCount = 0;
+                for (int i = 0; i < 1000; i++)
                 {
-                    // bad location, change direction and retry
-                    dir = randomDir();
-                    continue;
+                    Coord next = cur.add(dir);
+                    
+                    if (grid[next.x][next.y] == WATER
+                            || route.contains(next)
+                            || rand.nextInt(10) < 5
+                            )
+                    {
+                        // bad location, change direction and retry
+                        dir = randomDir();
+                        retryCount++;
+                        
+                        if (retryCount > 20)
+                            break;
+                        continue;
+                    }
+                    else
+                    {
+                        cur = next;
+                        route.add(next);
+                        retryCount = 0;
+                    }
                 }
-                else
-                {
-                    cur = next;
-                    route.add(next);
-                }
+//                System.out.println("MIN "+minDistStartEnd);
+                if (cur.gridDist(mark) >= minDistStartEnd
+                        && hasWater(getNeighbours(cur)))
+                    badPath = false;
             }
 //            System.out.println(route);
         }
         
+        private boolean hasWater(ArrayList<Coord> neighbours)
+        {
+            for (Coord n : neighbours)
+            {
+                if (grid[n.x][n.y] == WATER)
+                    return true;
+            }
+            return false;
+        }
+
         private Coord randomDir()
         {
             int di = rand.nextInt(4);
@@ -319,7 +396,9 @@ public class RoboMap
     public static void main(String[] args)
     {
         Random rand  = new Random();
-        final int W = 40, H = 21;
+//        final int W = 40, H = 40;
+        final int W = 10+rand.nextInt(50),
+                H = 10+rand.nextInt(50);
         
         Tile grid[][] = new Tile[W][H];
         Map map = new Map(grid, W, H, rand);

@@ -3,10 +3,14 @@ package piratemap.generate;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Random;
+
+import javax.imageio.ImageIO;
 
 import piratemap.utils.Util;
 import static piratemap.generate.RoboMap.Tile.*;
@@ -435,6 +439,15 @@ public class RoboMap
         map.print();
         
         BufferedImage im = map.render(20, 20);
+        
+        try
+        {
+            ImageIO.write(im, "png", new File("PirateMap.png"));
+        } catch (IOException e)
+        {
+            System.err.println("Could not save image, "+ 
+                        e.getMessage());
+        }
         
         Util.showImage(im);
         Util.exitAfter(10);

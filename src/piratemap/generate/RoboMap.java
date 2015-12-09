@@ -1,5 +1,6 @@
 package piratemap.generate;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
@@ -12,6 +13,7 @@ import java.util.Random;
 
 import javax.imageio.ImageIO;
 
+import piratemap.utils.TerrainMap;
 import piratemap.utils.Util;
 import static piratemap.generate.RoboMap.Tile.*;
 
@@ -19,7 +21,16 @@ public class RoboMap
 {
 
     static enum Tile {
-        WATER, SAND, TREES, HILL
+        WATER(4), SAND(8), TREES(2), HILL(0)
+        ;
+        
+        public int terrainCode;
+
+        private Tile(int terrainCode)
+        {
+            this.terrainCode = terrainCode;
+        }
+        
     }
     
     static class Coord
@@ -96,7 +107,7 @@ public class RoboMap
         public ArrayList<Coord> route;
         
         private static final int[] d = new int[] {
-                -1, 0, 0, 1, 1, 0, 0, -1
+                -1, 0, 0, -1, 1, 0, 0, 1
         };
         
         public Map(Tile[][] grid, int w, int h, Random rand)
@@ -178,6 +189,50 @@ public class RoboMap
             return conn;
         }
         
+
+        void makeRandomHillTrees(Random rand)
+        {
+            ArrayList<Coord> seeds = new ArrayList<>();
+            int numTries = (int) (Math.sqrt(W*H)/3);
+
+            // Find a few random seed places
+            for (int i = 0; i < numTries; i++)
+            {
+                int x = rand.nextInt(W);
+                int y = rand.nextInt(H);
+                
+                if (getTile(x, y) == SAND)
+                {
+                    setTile(x, y,
+                            rand.nextBoolean()?TREES:HILL);
+                    seeds.add(new Coord(x, y));
+                }
+            }
+            
+            ArrayList<Coord> region = new ArrayList<>();
+            for (Coord c : seeds)
+            {
+                region.clear();
+                region.add(c);
+                Tile type = getTile(c);
+
+                for (int i = 0; i < 10 && region.size() > 0; i++)
+                {
+                    Coord c1 = region.remove(rand.nextInt(region.size()));
+                    ArrayList<Coord> n = getNeighbours(c1);
+                    for (Coord c2 : n)
+                    {
+                        if (rand.nextBoolean() && getTile(c2) == SAND)
+                        {
+                            setTile(c2, type);
+                            region.add(c2);
+                        }
+                    }
+                }
+            }
+        }
+
+        
         void print()
         {
 
@@ -194,7 +249,7 @@ public class RoboMap
                     if (mark != null &&
                             x==mark.x && y == mark.y)
                         c = 'X';
-                    else if (route.contains(loc))
+                    else if (route != null && route.contains(loc))
                     {
                         c = '-';
                     }
@@ -230,59 +285,161 @@ public class RoboMap
         
         BufferedImage render(int tileSizeX, int tileSizeY)
         {
+            tileSizeX = 32; tileSizeY = 32;// hack for now
+            
+            BufferedImage hill = null, palm = null;
+            try
+            {
+                hill = ImageIO.read(new File("tiles/hill.png"));
+                palm = ImageIO.read(new File("tiles/palm_small.png"));
+            } catch (IOException e)
+            {
+                e.printStackTrace();
+                System.exit(1);
+            }
+            
+            
             BufferedImage im = new BufferedImage(W*tileSizeX, H * tileSizeY, 
                     BufferedImage.TYPE_INT_ARGB);
             
             Graphics2D g2 = im.createGraphics();
             
-            g2.setColor(Color.white);
-            
-            for (int x = 1; x < W; x++)
-                for (int y = 1; y < H; y++)
-                {
-                    if (grid[x][y] != grid[x-1][y])
-                        g2.drawLine(x*tileSizeX, y*tileSizeY, x*tileSizeX, (y+1)*tileSizeY);
-                    
-                    if (grid[x][y] != grid[x][y-1])
-                        g2.drawLine(x*tileSizeX, y*tileSizeY, (x+1)*tileSizeX, y*tileSizeY);
-                }
+            int[] codes = new int[4];
+//            for (int x = 0; x < W; x++)
+//                for (int y = 0; y < H; y++)
+//                {
+//                    Tile t = grid[x][y];
+//                    if (t == WATER)
+//                    {
+//                        getCornersWaterSand(x, y, codes);
+//                        TerrainMap.printTile(g2, x*32, y*32,
+//                                codes[0], codes[1], codes[2], codes[3]);
+//                    }
+//                    else
+//                        TerrainMap.printTile(g2, x*32, y*32, 8, 8, 8, 8);
+//                }
 
-            g2.setColor(Color.yellow);
-            Coord last = null;
-            int w2 = tileSizeX/2, h2 = tileSizeY/2;
-            for (Coord cc : route)
-            {
-                if (last != null)
-                {
-                    g2.drawLine(
-                            last.x*tileSizeX+w2, last.y*tileSizeY+h2,
-                            cc.x*tileSizeX+w2, cc.y*tileSizeY+h2
-                            );
-                }
-                last = cc;
-            }
             
-            for (Coord nn : getNeighbours(last))
-            {
-                if (grid[nn.x][nn.y] == WATER)
+            // "Correct" algorithm for deciding tiles
+            // Sandly, it makes islands too thin, route goes outside land,
+            // And sand does not have interfaces with other types
+            for (int x = 0; x < W; x++)
+                for (int y = 0; y < H; y++)
                 {
-                    int dx = nn.x - last.x;
-                    int dy = nn.y - last.y;
-                    
-                    g2.drawLine(
-                            last.x*tileSizeX+w2, last.y*tileSizeY+h2,
-                            last.x*tileSizeX+w2+dx*w2, last.y*tileSizeY+h2+dy*h2
-                            );
-                    
-                    break;
+                    getCornersWaterSand1(x, y, codes);
+                    TerrainMap.printTile(g2, x*32, y*32,
+                            codes[0], codes[1], codes[2], codes[3]);
                 }
-            }
+            
+            g2.translate(-16, -16);
+            // hills
+            for (int x = 0; x < W; x++)
+                for (int y = 0; y < H; y++)
+                {
+                    if (grid[x][y] == HILL)
+                    {
+                        g2.drawImage(hill,
+                                x*32 + rand.nextInt(8),
+                                y*32 + rand.nextInt(8),
+                                null);
+                        if (x == W-1 || y == H-1)
+                            continue;
+                        if (grid[x+1][y] != WATER
+                            && grid[x][y+1] != WATER
+                            && grid[x+1][y+1] != WATER)
+                                g2.drawImage(hill,
+                                        x*32 +16 + rand.nextInt(16),
+                                        y*32 +16 + rand.nextInt(16),
+                                        null);
+                    }
+                }
+            
+            // trees
+            for (int x = 0; x < W; x++)
+                for (int y = 0; y < H; y++)
+                {
+                    if (grid[x][y] == TREES)
+                    {
+                        g2.drawImage(palm,
+                                x*32 + rand.nextInt(8),
+                                y*32 -16+ rand.nextInt(8),
+                                null);
+                        if (x == W-1 || y == H-1)
+                            continue;
+                        if (grid[x+1][y] != WATER
+                            && grid[x][y+1] != WATER
+                            && grid[x+1][y+1] != WATER)
+                        {
+                                g2.drawImage(palm,
+                                        x*32  + rand.nextInt(32),
+                                        y*32-16  + rand.nextInt(32),
+                                        null);
+                                g2.drawImage(palm,
+                                        x*32  + rand.nextInt(32),
+                                        y*32 -16 + rand.nextInt(32),
+                                        null);
+                        }
+                    }
+                }
+            
+            // Grid
+//            g2.setColor(Color.red);
+//            for (int x = 1; x < W; x++)
+//                for (int y = 1; y < H; y++)
+//                {
+//                    if (grid[x][y] != grid[x-1][y])
+//                        g2.drawLine(x*tileSizeX, y*tileSizeY, x*tileSizeX, (y+1)*tileSizeY);
+//                    
+//                    if (grid[x][y] != grid[x][y-1])
+//                        g2.drawLine(x*tileSizeX, y*tileSizeY, (x+1)*tileSizeX, y*tileSizeY);
+//                }
+//            g2.translate(16, 16);
+            
             
             g2.setColor(Color.red);
-            g2.drawLine(mark.x*tileSizeX,mark.y*tileSizeY,
-                    (mark.x+1)*tileSizeX,(mark.y+1)*tileSizeY);
-            g2.drawLine(mark.x*tileSizeX,(mark.y+1)*tileSizeY,
-                    (mark.x+1)*tileSizeX,mark.y*tileSizeY);
+            g2.setStroke(new BasicStroke(3, BasicStroke.CAP_ROUND,
+                    BasicStroke.JOIN_ROUND, 100f, new float[]{10f}, 0));
+            Coord last = null;
+            int w2 = tileSizeX/2, h2 = tileSizeY/2;
+            if (route != null && mark != null)
+            {
+                for (Coord cc : route)
+                {
+                    if (last != null)
+                    {
+                        g2.drawLine(
+                                last.x*tileSizeX+w2, last.y*tileSizeY+h2,
+                                cc.x*tileSizeX+w2, cc.y*tileSizeY+h2
+                                );
+                    }
+                    last = cc;
+                }
+                
+                // Connect to coast
+    //            for (Coord nn : getNeighbours(last))
+    //            {
+    //                if (grid[nn.x][nn.y] == WATER)
+    //                {
+    //                    int dx = nn.x - last.x;
+    //                    int dy = nn.y - last.y;
+    //                    
+    //                    g2.drawLine(
+    //                            last.x*tileSizeX+w2, last.y*tileSizeY+h2,
+    //                            last.x*tileSizeX+w2+dx*w2, last.y*tileSizeY+h2+dy*h2
+    //                            );
+    //                    
+    //                    break;
+    //                }
+    //            }
+                
+                g2.setColor(Color.red);
+                g2.drawLine(mark.x*tileSizeX,mark.y*tileSizeY,
+                        (mark.x+1)*tileSizeX,(mark.y+1)*tileSizeY);
+                g2.drawLine(mark.x*tileSizeX,(mark.y+1)*tileSizeY,
+                        (mark.x+1)*tileSizeX,mark.y*tileSizeY);
+            }
+            
+            
             return im;
         }
         
@@ -292,6 +449,7 @@ public class RoboMap
             
             // make sure the mark is on the main landmass
             HashSet<Coord> main = getConnected(new Coord(W/2, H/2));
+            // It is possible for W/2, H/2 not to be on the main body, though usually it is.
             
             for (int i = 0; i < 1000; i++)
             {
@@ -308,6 +466,7 @@ public class RoboMap
             if (mark == null)
             {
                 System.err.println("Mark spot not found");
+                return;
             }
 
             
@@ -395,14 +554,80 @@ public class RoboMap
             int di = rand.nextInt(4);
             return new Coord(d[2*di], d[2*di+1]);
         }
+        
+        private static final int[] corners = new int[] 
+                {-1, -1, 1, -1, 1, 1, -1, 1};
+        void getCornersWaterSand(int x, int y, int[] out)
+        {
+            if (x < 0 || y < 0 || x >= W || y >=W)
+                return;
+            
+            Tile t = grid[x][y];
+            
+            for (int i = 0; i < 4; i++)
+            {
+                int x1 = x + corners[i*2];
+                int y1 = y + corners[i*2+1];
+                
+                if (x1 < 0 || y1 < 0 || x1 >= W || y1 >=W)
+                    out[i] = t.terrainCode;
+                else
+                {
+//                    out[i] = grid[x1][y1].terrainCode;
+                    out[i] = grid[x1][y1] == WATER ?
+                            WATER.terrainCode : SAND.terrainCode;
+                }
+            }
+
+            
+            for (int i = 0; i < 4; i++)
+            {
+                int x1 = x + d[i*2];
+                int y1 = y + d[i*2+1];
+                
+                if (x1 < 0 || y1 < 0 || x1 >= W || y1 >=W)
+                    ;
+                else if (grid[x1][y1] != WATER)
+                {
+//                    out[i] = grid[x1][y1].terrainCode;
+//                    out[(i+3) %4] = grid[x1][y1].terrainCode;
+                    out[i] = SAND.terrainCode;
+                    out[(i+3) %4] = SAND.terrainCode;
+                }
+            }
+            
+            // atlas indexes corners differently
+            int tmp = out[2]; out[2] = out[3]; out[3] = tmp;
+        }
+
+        private static final int[] offs = new int[] 
+                {0, 0, 1, 0, 0, 1, 1, 1};
+        void getCornersWaterSand1(int x, int y, int[] out)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                int x1 = x + offs[i*2];
+                int y1 = y + offs[i*2+1];
+                
+                if (x1 < 0 || y1 < 0 || x1 >= W || y1 >=W)
+                    out[i] = WATER.terrainCode;
+                else
+                {
+//                    out[i] = grid[x1][y1].terrainCode;
+                    out[i] = grid[x1][y1] == WATER ?
+                            WATER.terrainCode : SAND.terrainCode;
+                }
+            }
+        }
     }
-    
+
+//    sand = efd822, dirt = ac5500, water = 00487b, 
     public static void main(String[] args)
     {
         Random rand  = new Random();
-//        final int W = 40, H = 40;
-        final int W = 10+rand.nextInt(50),
-                H = 10+rand.nextInt(50);
+        final int W = 31, H = 31;
+//        final int W = 10+rand.nextInt(50),
+//                H = 10+rand.nextInt(50);
         
         Tile grid[][] = new Tile[W][H];
         Map map = new Map(grid, W, H, rand);
@@ -432,13 +657,13 @@ public class RoboMap
         
         deleteInlandWater(map);
         
-        makeRandomHillTrees(map, rand);
+        map.makeRandomHillTrees(rand);
         
         map.makeXAndRoute();
         
         map.print();
         
-        BufferedImage im = map.render(20, 20);
+        BufferedImage im = map.render(32, 32);
         
         try
         {
@@ -450,51 +675,10 @@ public class RoboMap
         }
         
         Util.showImage(im);
-        Util.exitAfter(10);
+        Util.exitAfter(20);
     }
 
 
-
-    private static void makeRandomHillTrees(Map map,
-                                            Random rand)
-    {
-        ArrayList<Coord> seeds = new ArrayList<>();
-        // Find a few random seed places
-        for (int i = 0; i < 10; i++)
-        {
-            int x = rand.nextInt(map.W);
-            int y = rand.nextInt(map.H);
-            
-            if (map.getTile(x, y) == SAND)
-            {
-                map.setTile(x, y,
-                        rand.nextBoolean()?TREES:HILL);
-                seeds.add(new Coord(x, y));
-            }
-        }
-        
-        ArrayList<Coord> region = new ArrayList<>();
-        for (Coord c : seeds)
-        {
-            region.clear();
-            region.add(c);
-            Tile type = map.getTile(c);
-
-            for (int i = 0; i < 10 && region.size() > 0; i++)
-            {
-                Coord c1 = region.remove(rand.nextInt(region.size()));
-                ArrayList<Coord> n = map.getNeighbours(c1);
-                for (Coord c2 : n)
-                {
-                    if (rand.nextBoolean() && map.getTile(c2) == SAND)
-                    {
-                        map.setTile(c2, type);
-                        region.add(c2);
-                    }
-                }
-            }
-        }
-    }
 
     private static void drawMidRect(Tile[][] grid, int x, int y, int w, int h,
             int depth, Random rand)
@@ -507,16 +691,23 @@ public class RoboMap
         if (depth > 0)
         {
             // More the recursion depth, exponentially less chance of being land
-            for (int i = 0; i <= depth; i++)
-                if (rand.nextBoolean())
-                    fillType = WATER;
+//            for (int i = 0; i <= depth; i++)
+//                if (/*rand.nextBoolean()*/rand.nextInt(10)<9)
+//                    fillType = WATER;
+            if (rand.nextInt(4)<3)
+                fillType = WATER;
         }
         
-        fill(grid, x+w/4, y+h/4, w/2, h/2, fillType);
+        if (rand.nextBoolean())
+            fillRect(grid, x+w/4, y+h/4, w/2, h/2, fillType);
+        else
+            fillCirc(grid, x+w/4, y+h/4, w/2, h/2, fillType);
         
         if (w > 3 && h > 3)
         {
-            int ww = w/2, hh = h/2;
+//            int ww = w/2, hh = h/2;
+            int ww = w/3+rand.nextInt(w/3),
+                    hh = h/3+rand.nextInt(h/3);
             drawMidRect(grid, x, y, ww, hh, depth+1, rand);
             drawMidRect(grid, x+ww, y, w-ww, hh, depth+1, rand);
             drawMidRect(grid, x, y+hh, ww, h-hh, depth+1, rand);
@@ -564,7 +755,25 @@ public class RoboMap
             }
     }
 
-    private static void fill(Tile[][] grid, int x, int y, int w, int h, Tile type)
+    private static void fillCirc(Tile[][] grid, int x, int y, int w, int h, Tile type)
+    {
+        int rx = w/2;
+        for (int x1 = -rx; x1 < rx; x1++)
+        {
+            int ry = (int) (Math.sqrt(rx*rx-x1*x1)+.5)*h/w;
+            int x2 = x + rx + x1;
+            for (int y1 = -ry; y1 < ry; y1++)
+            {
+                int y2 = y + h/2 + y1;
+                if (x2 > 0 && y2 > 0 &&
+                        x2 < grid.length && y2 < grid[x2].length)
+                    grid[x2][y2] = type;
+            }
+        }
+    }
+
+
+    private static void fillRect(Tile[][] grid, int x, int y, int w, int h, Tile type)
     {
         for (int x1 = x; x1 < x+w; x1++)
         {
@@ -575,6 +784,5 @@ public class RoboMap
             }
         }
     }
-
-
+    
 }

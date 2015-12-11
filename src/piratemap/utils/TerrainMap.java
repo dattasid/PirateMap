@@ -58,7 +58,8 @@ public class TerrainMap
                 +(w<<27);
     }
     
-    public static void printTile(Graphics2D g2, int destx, int desty, int t1, int t2, int t3, int t4)
+    public static void printTile(Graphics2D g2, int destx, int desty,
+            int w, int h, int t1, int t2, int t3, int t4)
     {
         
         long a = hash(t1, t2, t3, t4);
@@ -79,7 +80,7 @@ public class TerrainMap
         int tix = ti % 16;
         int tiy = ti / 16;
         
-        g2.drawImage(atlas, destx, desty, destx+TW, desty+TH, TW*tix, TH*tiy, TW*tix+TW, TH*tiy+TW, null);
+        g2.drawImage(atlas, destx, desty, destx+w, desty+h, TW*tix, TH*tiy, TW*tix+TW, TH*tiy+TW, null);
     }
     
     private static int[] _map = new int[]{

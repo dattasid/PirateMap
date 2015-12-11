@@ -8,7 +8,9 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Random;
 
 import javax.imageio.ImageIO;
@@ -105,6 +107,7 @@ public class RoboMap
         Random rand = new Random();
         public Coord mark;
         public ArrayList<Coord> route;
+        public ArrayList<Coord> routeDirs;
         
         private static final int[] d = new int[] {
                 -1, 0, 0, -1, 1, 0, 0, 1
@@ -136,6 +139,19 @@ public class RoboMap
             return n;
         }
 
+        public ArrayList<Tile> getNeighbourTiles(int x, int y)
+        {
+            ArrayList<Coord> n = getNeighbours(new Coord(x, y));
+            ArrayList<Tile> t = new ArrayList<>(n.size());
+            
+            for (Coord nn : n)
+            {
+                t.add(getTile(nn));
+            }
+            
+            return t;
+        }
+        
         public Tile getTile(int x, int y)
         {
             return grid[x][y];
@@ -163,8 +179,15 @@ public class RoboMap
         
         HashSet<Coord> getConnected(Coord start)
         {
+            
             ArrayList<Coord> list = new ArrayList<>();
             HashSet<Coord> conn = new HashSet<>();
+            
+            if (getTile(start) == WATER)
+            {
+                return conn;
+            }
+            
             
             list.add(start);
             conn.add(start);
@@ -193,7 +216,7 @@ public class RoboMap
         void makeRandomHillTrees(Random rand)
         {
             ArrayList<Coord> seeds = new ArrayList<>();
-            int numTries = (int) (Math.sqrt(W*H)/3);
+            int numTries = (int) (Math.sqrt(W*H)/1);
 
             // Find a few random seed places
             for (int i = 0; i < numTries; i++)
@@ -222,7 +245,7 @@ public class RoboMap
                     ArrayList<Coord> n = getNeighbours(c1);
                     for (Coord c2 : n)
                     {
-                        if (rand.nextBoolean() && getTile(c2) == SAND)
+                        if (rand.nextInt(10) < 2 && getTile(c2) == SAND)
                         {
                             setTile(c2, type);
                             region.add(c2);
@@ -285,7 +308,6 @@ public class RoboMap
         
         BufferedImage render(int tileSizeX, int tileSizeY)
         {
-            tileSizeX = 32; tileSizeY = 32;// hack for now
             
             BufferedImage hill = null, palm = null;
             try
@@ -327,11 +349,12 @@ public class RoboMap
                 for (int y = 0; y < H; y++)
                 {
                     getCornersWaterSand1(x, y, codes);
-                    TerrainMap.printTile(g2, x*32, y*32,
+                    TerrainMap.printTile(g2, x*tileSizeX, y*tileSizeY,
+                            tileSizeX, tileSizeY,
                             codes[0], codes[1], codes[2], codes[3]);
                 }
             
-            g2.translate(-16, -16);
+            g2.translate(-tileSizeX/2, -tileSizeY/2);
             // hills
             for (int x = 0; x < W; x++)
                 for (int y = 0; y < H; y++)
@@ -339,8 +362,9 @@ public class RoboMap
                     if (grid[x][y] == HILL)
                     {
                         g2.drawImage(hill,
-                                x*32 + rand.nextInt(8),
-                                y*32 + rand.nextInt(8),
+                                x*tileSizeX + rand.nextInt(tileSizeX/4),
+                                y*tileSizeY + rand.nextInt(tileSizeY/4),
+                                tileSizeX, tileSizeY,
                                 null);
                         if (x == W-1 || y == H-1)
                             continue;
@@ -348,8 +372,9 @@ public class RoboMap
                             && grid[x][y+1] != WATER
                             && grid[x+1][y+1] != WATER)
                                 g2.drawImage(hill,
-                                        x*32 +16 + rand.nextInt(16),
-                                        y*32 +16 + rand.nextInt(16),
+                                        x*tileSizeX +tileSizeX/2 + rand.nextInt(tileSizeX/2),
+                                        y*tileSizeY +tileSizeY/2 + rand.nextInt(tileSizeY/2),
+                                        tileSizeX, tileSizeY,
                                         null);
                     }
                 }
@@ -361,8 +386,9 @@ public class RoboMap
                     if (grid[x][y] == TREES)
                     {
                         g2.drawImage(palm,
-                                x*32 + rand.nextInt(8),
-                                y*32 -16+ rand.nextInt(8),
+                                x*tileSizeX + rand.nextInt(tileSizeX/4),
+                                y*tileSizeY -tileSizeY/2+ rand.nextInt(tileSizeY/4),
+                                tileSizeX, tileSizeY,
                                 null);
                         if (x == W-1 || y == H-1)
                             continue;
@@ -371,12 +397,14 @@ public class RoboMap
                             && grid[x+1][y+1] != WATER)
                         {
                                 g2.drawImage(palm,
-                                        x*32  + rand.nextInt(32),
-                                        y*32-16  + rand.nextInt(32),
+                                        x*tileSizeX + rand.nextInt(tileSizeX/2),
+                                        y*tileSizeY -tileSizeY/2+ rand.nextInt(tileSizeY/2),
+                                        tileSizeX, tileSizeY,
                                         null);
                                 g2.drawImage(palm,
-                                        x*32  + rand.nextInt(32),
-                                        y*32 -16 + rand.nextInt(32),
+                                        x*tileSizeX + rand.nextInt(tileSizeX/2),
+                                        y*tileSizeY -tileSizeY/2+ rand.nextInt(tileSizeY/2),
+                                        tileSizeX, tileSizeY,
                                         null);
                         }
                     }
@@ -433,6 +461,7 @@ public class RoboMap
     //            }
                 
                 g2.setColor(Color.red);
+                g2.setStroke(new BasicStroke(7));
                 g2.drawLine(mark.x*tileSizeX,mark.y*tileSizeY,
                         (mark.x+1)*tileSizeX,(mark.y+1)*tileSizeY);
                 g2.drawLine(mark.x*tileSizeX,(mark.y+1)*tileSizeY,
@@ -450,6 +479,8 @@ public class RoboMap
             // make sure the mark is on the main landmass
             HashSet<Coord> main = getConnected(new Coord(W/2, H/2));
             // It is possible for W/2, H/2 not to be on the main body, though usually it is.
+            if (main.size() == 0)
+                return;
             
             for (int i = 0; i < 1000; i++)
             {
@@ -469,40 +500,20 @@ public class RoboMap
                 return;
             }
 
-            
-//            route = new ArrayList<Coord>();
-//            route.add(mark);
-//            Coord cur = mark;
-            // Random walk looks horrible.
-//            for (int i = 0; i < 100; i++)
-//            {
-//                ArrayList<Coord> n = getNeighbours(cur);
-//                ArrayList<Coord> filtn = new ArrayList<>();
-//                for (Coord nn : n)
-//                {
-//                    if (grid[nn.x][nn.y] == WATER
-//                          ||  route.contains(nn))
-//                    {
-//                    }
-//                    else
-//                        filtn.add(nn);
-//                }
-//                
-//                if (filtn.size() == 0)
-//                    break;
-//                cur = filtn.get(rand.nextInt(filtn.size()));
-//                route.add(cur);
-//            }
-
             route = new ArrayList<Coord>();
+            routeDirs = new ArrayList<Coord>();
+            
+            final int MAX_PATH_RETRY = 1000;
             
             boolean badPath = true;
-            int minDistStartEnd = (int) (Math.sqrt(W*H)/4);
-            
-            while(badPath)
+            int minDistStartEnd = (int) (Math.sqrt(W*H)/3);
+            int fullPathRetries = 0;
+            while(badPath && fullPathRetries < MAX_PATH_RETRY)
             {
                 route.clear();
                 route.add(mark);
+                routeDirs.clear();
+                
                 Coord cur = mark;
 
                 Coord dir = randomDir();
@@ -526,17 +537,37 @@ public class RoboMap
                     }
                     else
                     {
+                        
                         cur = next;
                         route.add(next);
+                        routeDirs.add(dir);
+                        
+                        
+                        
                         retryCount = 0;
                     }
                 }
 //                System.out.println("MIN "+minDistStartEnd);
                 if (cur.gridDist(mark) >= minDistStartEnd
                         && hasWater(getNeighbours(cur)))
+                {
                     badPath = false;
+                }
+                
+                fullPathRetries++;
+                
             }
-//            System.out.println(route);
+            
+            if (fullPathRetries >= MAX_PATH_RETRY)
+            {
+                route.clear();
+                routeDirs.clear();
+                System.out.println("route fail ");
+            }
+            
+            Collections.reverse(route);
+            Collections.reverse(routeDirs);
+
         }
         
         private boolean hasWater(ArrayList<Coord> neighbours)
@@ -609,7 +640,7 @@ public class RoboMap
                 int x1 = x + offs[i*2];
                 int y1 = y + offs[i*2+1];
                 
-                if (x1 < 0 || y1 < 0 || x1 >= W || y1 >=W)
+                if (x1 < 0 || y1 < 0 || x1 >= W || y1 >= H)
                     out[i] = WATER.terrainCode;
                 else
                 {
@@ -619,15 +650,160 @@ public class RoboMap
                 }
             }
         }
+        
+        private int getDir(Coord d1, Coord d2)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                if (d[i*2] == d1.x && d[i*2+1] == d1.y)
+                {
+                    if (d1.equals(d2))
+                        return 0;
+                    else {
+                        if (d2.x == d[(i*2 + 6) % 8]
+                            && d2.y == d[(i*2 + 7) % 8])
+                        {
+                            return -1;
+                        }
+                        else if (d2.x == d[(i*2 + 2) % 8]
+                                && d2.y == d[(i*2 + 3) % 8])
+                            {
+                                return 1;
+                            } 
+                    }
+                }
+            }
+            
+            return -100;
+        }
+        
+        String getWordDirections()
+        {
+            if (routeDirs == null)
+                    return "";
+            TemplateRules rules = new TemplateRules();
+            StringBuilder sb = new StringBuilder("Start ").append(rules.getStr("start")).append(".\n");
+            Coord last = null;
+            
+            for (int i = 0; i < routeDirs.size(); i++)
+            {
+                Coord c = routeDirs.get(i);
+                Coord pos = route.get(i);
+                if (last != null)
+                {
+                    int d = getDir(last, c);
+                    
+                    Tile t = getTile(pos);
+                    switch (d)
+                    {
+                    case 0:
+//                        sb.append("F");
+                        break;
+                    case 1:
+                        sb.append("Turn right ").append(rules.getStrFor(t)).append(".\n");
+                        break;
+                    case -1:
+                        sb.append("Turn left ").append(rules.getStrFor(t)).append(".\n");
+                        break;
+                    default:
+                        sb.append("[").append(d).append("]")
+                        .append(last).append(c);
+                    }
+                }
+                
+                last = c;
+            }
+            
+            return sb.toString();
+        }
+    }
+ 
+    static class Options
+    {
+        public int imageX, imageY, tileSize;
+    }
+    
+    static void getOptions(String[] args, Options options)
+    {
+        for (int i = 0; i < args.length; i++)
+        {
+            String a = args[i];
+            
+            if ("--size".equals(a))
+            {
+                if (i >= args.length - 1)
+                {
+                    printArgError("--size needs an arguement.");
+                }
+                
+                i++;
+                String a2 = args[i];
+                String words[] = a2.split("x");
+                
+                try {
+                    options.imageX = Integer.parseInt(words[0]);
+                    if (words.length > 1)
+                        options.imageY = Integer.parseInt(words[1]);
+                    else
+                        options.imageY = options.imageX;
+                } catch (NumberFormatException e)
+                {
+                    printArgError("Expecting a number for --size "+e.getMessage());
+                }
+            }
+            else if ("--tileSize".equals(a))
+            {
+                if (i >= args.length - 1)
+                {
+                    printArgError("--tileSize needs an arguement.");
+                }
+                
+                i++;
+                String a2 = args[i];
+                
+                try {
+                    options.tileSize = Integer.parseInt(a2);
+                } catch (NumberFormatException e)
+                {
+                    printArgError("Expecting a number for --tileSize "+e.getMessage());
+                }
+            }
+            else
+            {
+                printArgError("Invalid arguement "+a);
+            }
+        }
     }
 
-//    sand = efd822, dirt = ac5500, water = 00487b, 
+    private static void printArgError(String msg)
+    {
+        System.out.println(msg);
+        usage();
+        System.exit(0);
+    }
+    
+    static void usage()
+    {
+        System.out.println("PirateMap [--size <sizeX>x<sizeY>] [--tileSize <tileSize>]");
+    }
+    
     public static void main(String[] args)
     {
         Random rand  = new Random();
-        final int W = 31, H = 31;
-//        final int W = 10+rand.nextInt(50),
-//                H = 10+rand.nextInt(50);
+        int W = 10+rand.nextInt(20),
+                H = 10+rand.nextInt(20);
+
+        Options options = new Options();
+        options.tileSize = 32;
+        options.imageX = options.tileSize * W;
+        options.imageY = options.tileSize * H;
+        getOptions(args, options);
+        
+        W = options.imageX / options.tileSize;
+        H = options.imageY / options.tileSize;
+        
+        options.imageX = W * options.tileSize;
+        options.imageY = H * options.tileSize;
         
         Tile grid[][] = new Tile[W][H];
         Map map = new Map(grid, W, H, rand);
@@ -652,8 +828,14 @@ public class RoboMap
 ////                break;
 //        }
         
-        drawMidRect(grid, 0, 1, W, H, 0, rand);
-        // Magically all boundary tiles are water, no idea why
+        drawSubDivRect(grid, 0, 1, W, H, 0, rand);
+        fillCirc(grid, W/2-W/8, H/2-H/8, W/4, H/4, SAND); // make sure some island in exact mid.
+        fillRect(grid, 0, 0, W, 1, WATER);
+        fillRect(grid, 0, H-1, W, 1, WATER);
+        fillRect(grid, 0, 0, 1, H, WATER);
+        fillRect(grid, W-1, 0, 1, H, WATER);
+        
+        drawRoughen(map, rand);
         
         deleteInlandWater(map);
         
@@ -661,9 +843,13 @@ public class RoboMap
         
         map.makeXAndRoute();
         
-        map.print();
+//        map.print();
         
-        BufferedImage im = map.render(32, 32);
+        BufferedImage im = map.render(options.tileSize, options.tileSize);
+
+        System.out.println(map.getWordDirections());
+        
+
         
         try
         {
@@ -678,9 +864,35 @@ public class RoboMap
         Util.exitAfter(20);
     }
 
+    private static void drawRoughen(Map map, Random rand)
+    {
+        for (int x = 0; x < map.W; x++)
+        {
+            for (int y = 0; y < map.H; y++)
+            {
+                if (map.getTile(x, y) != WATER)
+                {
+                    int c = count(map.getNeighbourTiles(x, y), WATER);
+                    
+                    if (c > 0 && c < 3 && rand.nextInt(10)<3)
+                        map.setTile(x, y, WATER);
+                }
+            }
+        }
+    }
 
+    private static int count(ArrayList<Tile> neighbours, Tile tile)
+    {
+        int c = 0;
+        for (Tile nn : neighbours)
+        {
+            if (nn == tile)
+                c++;
+        }
+        return c;
+    }
 
-    private static void drawMidRect(Tile[][] grid, int x, int y, int w, int h,
+    private static void drawSubDivRect(Tile[][] grid, int x, int y, int w, int h,
             int depth, Random rand)
     {
         if (grid.length == 0 || grid[0].length == 0)
@@ -708,10 +920,10 @@ public class RoboMap
 //            int ww = w/2, hh = h/2;
             int ww = w/3+rand.nextInt(w/3),
                     hh = h/3+rand.nextInt(h/3);
-            drawMidRect(grid, x, y, ww, hh, depth+1, rand);
-            drawMidRect(grid, x+ww, y, w-ww, hh, depth+1, rand);
-            drawMidRect(grid, x, y+hh, ww, h-hh, depth+1, rand);
-            drawMidRect(grid, x+ww, y+hh, w-ww, h-hh, depth+1, rand);
+            drawSubDivRect(grid, x, y, ww, hh, depth+1, rand);
+            drawSubDivRect(grid, x+ww, y, w-ww, hh, depth+1, rand);
+            drawSubDivRect(grid, x, y+hh, ww, h-hh, depth+1, rand);
+            drawSubDivRect(grid, x+ww, y+hh, w-ww, h-hh, depth+1, rand);
         }
         
     }

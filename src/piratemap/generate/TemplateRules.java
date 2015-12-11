@@ -1,12 +1,11 @@
 package piratemap.generate;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import piratemap.generate.RoboMap.Tile;
+import piratemap.generate.PirateMap.Tile;
 
 public class TemplateRules
 {

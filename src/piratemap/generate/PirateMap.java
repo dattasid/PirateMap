@@ -17,9 +17,9 @@ import javax.imageio.ImageIO;
 
 import piratemap.utils.TerrainMap;
 import piratemap.utils.Util;
-import static piratemap.generate.RoboMap.Tile.*;
+import static piratemap.generate.PirateMap.Tile.*;
 
-public class RoboMap
+public class PirateMap
 {
 
     static enum Tile {

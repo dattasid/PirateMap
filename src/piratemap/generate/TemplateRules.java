@@ -7,6 +7,20 @@ import java.util.regex.Pattern;
 
 import piratemap.generate.PirateMap.Tile;
 
+/**
+ * Generate strings based on templeate rules.
+ * 
+ * rule : string1 | string2 | string3
+ * Returns one of string1, string2, string3 with equal probability
+ * 
+ * rule : $var other
+ * Expands 'var' rule, inserts it in place of $var
+ * 
+ * All strings will be trimmed so dont worry about space around '|'.
+ * 
+ * @author sdatta
+ *
+ */
 public class TemplateRules
 {
     final String[] rules = new String[] {
@@ -25,13 +39,15 @@ public class TemplateRules
       "cavedesc", "bright | dark | mossy | windy",
       "mark", " sun | moon | star | flower | heart | $animal",
       
-      "start", "at $wreck | at the sunken boat | at the seaweed jungle | at the old turtle nest | at the shady cove"
+      "start", "at $wreck | at the sunken boat | at the seaweed jungle | at the old turtle nest | at the $covedesc cove",
+      "covedesc", "shady | bright | emarald | sapphire | murky",
     };
     
     HashMap<String, String[]> map = new HashMap<>();
     
-    public TemplateRules()
+    public TemplateRules(Random rand)
     {
+        this.rand = rand;
         for (int i = 0; i+1 < rules.length; i+=2)
         {
             String ruleName = rules[i].trim();
@@ -48,8 +64,13 @@ public class TemplateRules
         }
     }
     
-    Random rand = new Random();
+    Random rand;
     Pattern p = Pattern.compile("\\$([a-zA-Z_0-9]+)");
+    /**
+     * Generate string given rule name to start at.
+     * @param rule
+     * @return
+     */
     public String getStr(String rule)
     {
         String[] rhs = map.get(rule);
@@ -79,6 +100,11 @@ public class TemplateRules
         return rhs1;
     }
     
+    /**
+     *  Maps from tile type to string
+     * @param t
+     * @return
+     */
     public String getStrFor(Tile t)
     {
         switch (t)
@@ -95,9 +121,10 @@ public class TemplateRules
         }
     }
     
+    // Test
     public static void main(String[] args)
     {
-        TemplateRules t = new TemplateRules();
+        TemplateRules t = new TemplateRules(new Random());
         
         for (int i = 0; i < 100; i++)
             System.out.println(t.getStr("hill"));

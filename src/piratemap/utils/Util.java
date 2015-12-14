@@ -9,6 +9,10 @@ import javax.swing.JLabel;
 
 public class Util
 {
+    /**
+     * Show an image in a popup window. Closing the window will stop the process.
+     * @param im
+     */
     public static void showImage(BufferedImage im)
     {
         JFrame jf = new JFrame();
@@ -19,6 +23,12 @@ public class Util
         jf.setVisible(true);
     }
     
+    /**
+     * Process will exit, thereby closing any windows, after x seconds.
+     * This means you can keep running the process to see the output without
+     * having to close windows individually. 
+     * @param secs
+     */
     public static void exitAfter(final int secs)
     {
         Thread t = new Thread() {

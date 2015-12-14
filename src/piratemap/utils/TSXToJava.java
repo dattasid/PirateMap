@@ -10,6 +10,14 @@ import java.util.regex.Pattern;
 public class TSXToJava
 {
 
+    /** 
+     * Read a TSX file, output the data in a format that can be copy pasted
+     * to Java.
+     * Faster than figuring out the proper XMl parsing code :p.
+     * 
+     * @param args
+     * @throws IOException
+     */
     public static void main(String[] args) throws IOException
     {
         File f = new File("tiles/terrain.tsx");

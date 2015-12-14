@@ -9,8 +9,14 @@ import java.util.Random;
 
 import javax.imageio.ImageIO;
 
+/**
+ * Tile data.
+ * @author sdatta
+ *
+ */
 public class TerrainMap
 {
+    // Water has multiple tiles, makes the water look less boring.  
     private static final int[] WATER_CODES = new int[]{441, 442, 443};
 
     static 
@@ -50,6 +56,14 @@ public class TerrainMap
         
     }
     
+    /** 
+     * Tile codes are less than 512 each. so 19 bits.
+     * @param x
+     * @param y
+     * @param z
+     * @param w
+     * @return
+     */
     private static long hash(int x, int y, int z, int w)
     {
         return x+
@@ -58,6 +72,19 @@ public class TerrainMap
                 +(w<<27);
     }
     
+    /**
+     * Given corner codes, find the correct offset of the tile in the bigger atlas.
+     * And copy the tile onto the destination. 
+     * @param g2
+     * @param destx
+     * @param desty
+     * @param w
+     * @param h
+     * @param t1
+     * @param t2
+     * @param t3
+     * @param t4
+     */
     public static void printTile(Graphics2D g2, int destx, int desty,
             int w, int h, int t1, int t2, int t3, int t4)
     {
